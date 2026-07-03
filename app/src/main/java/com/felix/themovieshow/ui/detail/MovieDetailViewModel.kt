@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.felix.themovieshow.data.api.model.Movie
 import com.felix.themovieshow.data.api.model.Review
 import com.felix.themovieshow.data.repository.FavoriteRepository
-import com.felix.themovieshow.data.repository.HomeRepository
 import com.felix.themovieshow.data.repository.MovieDetailRepository
 import com.felix.themovieshow.data.repository.ReviewRepository
 import com.felix.themovieshow.data.resource.Resource
@@ -33,7 +32,6 @@ data class MovieDetailUiState(
 class MovieDetailViewModel @Inject constructor(
     private val detailRepository: MovieDetailRepository,
     private val reviewRepository: ReviewRepository,
-    private val homeRepository: HomeRepository,
     private val favoriteRepository: FavoriteRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -64,7 +62,6 @@ class MovieDetailViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, movie = result.data) }
                     loadTrailer()
                     loadReviewPreview()
-                    result.data.genreIds.firstOrNull()?.let { loadRelatedMovies(it) }
                 }
                 is Resource.Error -> {
                     _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
@@ -89,23 +86,6 @@ class MovieDetailViewModel @Inject constructor(
                 is Resource.Error -> Unit
             }
         }
-    }
-
-    private fun loadRelatedMovies(genreId: Int) {
-        viewModelScope.launch {
-            when (val result = homeRepository.discoverMoviesByGenre(genreId, page = 1)) {
-                is Resource.Success -> {
-                    _uiState.update {
-                        it.copy(relatedMovies = result.data.results.filter { m -> m.id != movieId })
-                    }
-                }
-                is Resource.Error -> Unit
-            }
-        }
-    }
-
-    fun toggleLike() {
-        _uiState.update { it.copy(isLiked = !it.isLiked) }
     }
 
     fun toggleSave() {

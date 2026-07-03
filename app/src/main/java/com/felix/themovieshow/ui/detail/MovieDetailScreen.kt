@@ -1,5 +1,6 @@
 package com.felix.themovieshow.ui.detail
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,26 +11,29 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,7 +50,6 @@ import com.felix.themovieshow.data.api.model.Movie
 import com.felix.themovieshow.data.api.model.Review
 import com.felix.themovieshow.ui.component.ErrorView
 import com.felix.themovieshow.ui.component.LoadingView
-import com.felix.themovieshow.ui.component.MovieRowSection
 import com.felix.themovieshow.ui.component.ReviewPreviewSection
 import com.felix.themovieshow.ui.component.YoutubePlayer
 import com.felix.themovieshow.ui.theme.AccentRed
@@ -57,18 +60,31 @@ import com.felix.themovieshow.ui.theme.TheMovieShowTheme
 @Composable
 fun MovieDetailScreen(
     onBackClick: () -> Unit,
-    onMovieClick: (Movie) -> Unit,
     onSeeAllReviewsClick: () -> Unit,
     viewModel: MovieDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     MovieDetailContent(
         uiState = uiState,
         onBackClick = onBackClick,
-        onMovieClick = onMovieClick,
         onSeeAllReviewsClick = onSeeAllReviewsClick,
         onToggleFavorite = viewModel::toggleSave,
+        onShareClick = {
+            uiState.movie?.let { movie ->
+                val sendIntent: Intent = Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(
+                        Intent.EXTRA_TEXT,
+                        "Check out this movie: ${movie.title}\nhttps://www.themoviedb.org/movie/${movie.id}"
+                    )
+                    type = "text/plain"
+                }
+                val shareIntent = Intent.createChooser(sendIntent, null)
+                context.startActivity(shareIntent)
+            }
+        },
         onRetry = viewModel::loadMovieDetail
     )
 }
@@ -78,16 +94,64 @@ fun MovieDetailScreen(
 fun MovieDetailContent(
     uiState: MovieDetailUiState,
     onBackClick: () -> Unit,
-    onMovieClick: (Movie) -> Unit,
     onSeeAllReviewsClick: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onShareClick: () -> Unit,
     onRetry: () -> Unit
 ) {
-    var showShareSheet by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState()
-    val context = LocalContext.current
+    Scaffold(
+        containerColor = BackgroundDark,
+        bottomBar = {
+            if (uiState.movie != null) {
+                Surface(
+                    color = BackgroundDark,
+                    tonalElevation = 8.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .navigationBarsPadding(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = onShareClick,
+                            modifier = Modifier
+                                .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Share,
+                                contentDescription = "Share",
+                                tint = Color.White
+                            )
+                        }
 
-    Scaffold(containerColor = BackgroundDark) { padding ->
+                        Button(
+                            onClick = onToggleFavorite,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (uiState.isSaved) Color.White.copy(alpha = 0.1f) else AccentRed
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (uiState.isSaved) Icons.Filled.Favorite
+                                else Icons.Filled.FavoriteBorder,
+                                contentDescription = null,
+                                tint = if (uiState.isSaved) AccentRed else Color.White
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = if (uiState.isSaved) "Remove from Favorite" else "Add to Favorite",
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    ) { padding ->
         when {
             uiState.isLoading && uiState.movie == null -> {
                 LoadingView(modifier = Modifier.padding(padding))
@@ -130,27 +194,6 @@ fun MovieDetailContent(
                         ) {
                             Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                         }
-
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            IconButton(
-                                onClick = onToggleFavorite,
-                                modifier = Modifier
-                                    .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
-                            ) {
-                                Icon(
-                                    imageVector = if (uiState.isSaved) Icons.Filled.Favorite
-                                    else Icons.Filled.FavoriteBorder,
-                                    contentDescription = if (uiState.isSaved) "Remove from favorites"
-                                    else "Add to favorites",
-                                    tint = if (uiState.isSaved) AccentRed else Color.White
-                                )
-                            }
-                        }
                     }
 
                     Column(modifier = Modifier.padding(20.dp)) {
@@ -172,15 +215,6 @@ fun MovieDetailContent(
                             reviews = uiState.reviewPreview,
                             onSeeAllClick = onSeeAllReviewsClick
                         )
-                    }
-
-                    if (uiState.relatedMovies.isNotEmpty()) {
-                        MovieRowSection(
-                            title = "Related",
-                            movies = uiState.relatedMovies,
-                            onMovieClick = onMovieClick
-                        )
-                        Spacer(Modifier.height(20.dp))
                     }
                 }
             }
@@ -216,12 +250,6 @@ private val sampleReviews = listOf(
     )
 )
 
-private val sampleRelatedMovies = listOf(
-    sampleMovie.copy(id = 1, title = "Mortal Kombat"),
-    sampleMovie.copy(id = 2, title = "Street Fighter"),
-    sampleMovie.copy(id = 3, title = "Tekken")
-)
-
 // ============ PREVIEWS ============
 
 @Preview(showBackground = true, name = "Detail - Loaded")
@@ -233,13 +261,12 @@ private fun MovieDetailContentPreview() {
                 isLoading = false,
                 movie = sampleMovie,
                 trailerKey = null, // null supaya preview tampilin backdrop image, bukan YoutubePlayer
-                reviewPreview = sampleReviews,
-                relatedMovies = sampleRelatedMovies
+                reviewPreview = sampleReviews
             ),
             onBackClick = {},
-            onMovieClick = {},
             onSeeAllReviewsClick = {},
             onToggleFavorite = {},
+            onShareClick = {},
             onRetry = {}
         )
     }
@@ -252,9 +279,9 @@ private fun MovieDetailContentLoadingPreview() {
         MovieDetailContent(
             uiState = MovieDetailUiState(isLoading = true),
             onBackClick = {},
-            onMovieClick = {},
             onSeeAllReviewsClick = {},
             onToggleFavorite = {},
+            onShareClick = {},
             onRetry = {}
         )
     }
@@ -270,9 +297,9 @@ private fun MovieDetailContentErrorPreview() {
                 errorMessage = "Gagal mengambil detail film"
             ),
             onBackClick = {},
-            onMovieClick = {},
             onSeeAllReviewsClick = {},
             onToggleFavorite = {},
+            onShareClick = {},
             onRetry = {}
         )
     }

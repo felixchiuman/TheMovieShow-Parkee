@@ -54,7 +54,6 @@ fun TheMovieShowNavGraph() {
             val movieId = backStackEntry.arguments?.getInt("movieId") ?: return@composable
             MovieDetailScreen(
                 onBackClick = { navController.popBackStack() },
-                onMovieClick = { movie -> navController.navigate(Routes.detail(movie.id)) },
                 onSeeAllReviewsClick = { navController.navigate(Routes.reviews(movieId)) }
             )
         }
