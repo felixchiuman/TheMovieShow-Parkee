@@ -20,6 +20,9 @@ data class HomeUiState(
     val topRatedMovies: List<Movie> = emptyList(),
     val isLoadingTopRated: Boolean = false,
     val topRatedPage: Int = 1,
+    val nowPlayingMovies: List<Movie> = emptyList(),
+    val isNowPlaying: Boolean = false,
+    val nowPlayingPage: Int = 1,
     val errorMessage: String? = null
 )
 
@@ -34,6 +37,7 @@ class HomeViewModel @Inject constructor(
     init {
         loadPopularMovies(reset = true)
         loadTopRatedMovies(reset = true)
+        loadNowPlayingMovies(reset = true)
     }
 
     fun loadPopularMovies(reset: Boolean = false) {
@@ -94,8 +98,38 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun loadNowPlayingMovies(reset: Boolean = false) {
+        if (_uiState.value.isNowPlaying) return
+        viewModelScope.launch {
+            val page = if (reset) 1 else _uiState.value.nowPlayingPage + 1
+            _uiState.update { it.copy(isNowPlaying = true) }
+
+            when (val result = repository.getNowPlaying(page)) {
+                is Resource.Success -> {
+                    _uiState.update { state ->
+                        val newMovies = if (reset) {
+                            result.data.results
+                        } else {
+                            (state.nowPlayingMovies + result.data.results).distinctBy { it.id }
+                        }
+                        state.copy(
+                            isNowPlaying = false,
+                            nowPlayingMovies = newMovies,
+                            nowPlayingPage = page,
+                            errorMessage = null
+                        )
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isNowPlaying = false, errorMessage = result.message) }
+                }
+            }
+        }
+    }
+
     fun retryLoad() {
         loadPopularMovies(reset = true)
         loadTopRatedMovies(reset = true)
+        loadNowPlayingMovies(reset = true)
     }
 }

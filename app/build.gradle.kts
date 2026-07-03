@@ -100,4 +100,8 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)
+
+    //chucker
+    debugImplementation(libs.chucker.library)
+    releaseImplementation(libs.chucker.library.no.op)
 }

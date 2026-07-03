@@ -1,5 +1,6 @@
 package com.felix.themovieshow.ui.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,7 +58,12 @@ fun TopHeaderGreeting(
             Text(userName, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
         if (onFavoriteClick != null) {
-            IconButton(onClick = onFavoriteClick) {
+            IconButton(
+                onClick = onFavoriteClick,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White.copy(alpha = 0.1f))
+            ) {
                 Icon(
                     imageVector = Icons.Filled.Favorite,
                     contentDescription = "Favorite list",

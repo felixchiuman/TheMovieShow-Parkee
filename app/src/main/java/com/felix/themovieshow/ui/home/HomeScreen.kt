@@ -43,6 +43,7 @@ fun HomeScreen(
         onFavoriteClick = onFavoriteClick,
         onLoadMorePopular = { viewModel.loadPopularMovies() },
         onLoadMoreTopRated = { viewModel.loadTopRatedMovies() },
+        onLoadMoreNowPlaying = {viewModel.loadNowPlayingMovies()},
         onRetry = viewModel::retryLoad
     )
 }
@@ -56,13 +57,16 @@ fun HomeScreenContent(
     onFavoriteClick: () -> Unit,
     onLoadMorePopular: () -> Unit,
     onLoadMoreTopRated: () -> Unit,
+    onLoadMoreNowPlaying: () -> Unit,
     onRetry: () -> Unit
 ) {
     val isInitialLoading = uiState.popularMovies.isEmpty() &&
             uiState.topRatedMovies.isEmpty() &&
-            (uiState.isLoadingPopular || uiState.isLoadingTopRated)
+            (uiState.isLoadingPopular || uiState.isLoadingTopRated || uiState.isNowPlaying)
 
-    val hasNoData = uiState.popularMovies.isEmpty() && uiState.topRatedMovies.isEmpty()
+    val hasNoData = uiState.popularMovies.isEmpty() &&
+            uiState.topRatedMovies.isEmpty() &&
+            uiState.nowPlayingMovies.isEmpty()
 
     Scaffold(containerColor = BackgroundDark) { padding ->
         Column(
@@ -103,7 +107,17 @@ fun HomeScreenContent(
                         )
                     }
 
-                    if (uiState.isLoadingPopular || uiState.isLoadingTopRated) {
+                    if (uiState.nowPlayingMovies.isNotEmpty()) {
+                        MovieRowSection(
+                            title = "Now Playing",
+                            movies = uiState.nowPlayingMovies,
+                            onMovieClick = onMovieClick,
+                            onLoadMore = onLoadMoreNowPlaying,
+                            onViewAllClick = { onSeeAllClick("now_playing") }
+                        )
+                    }
+
+                    if (uiState.isLoadingPopular || uiState.isLoadingTopRated || uiState.isNowPlaying) {
                         LoadingView()
                     }
                 }
@@ -149,6 +163,7 @@ fun HomeScreenPreview() {
             onFavoriteClick = {},
             onLoadMorePopular = {},
             onLoadMoreTopRated = {},
+            onLoadMoreNowPlaying = {},
             onRetry = {}
         )
     }

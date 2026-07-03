@@ -1,6 +1,7 @@
 package com.felix.themovieshow.data.api.network
 
 import com.felix.themovieshow.data.api.model.Movie
+import com.felix.themovieshow.data.api.model.NowPlayingResponse
 import com.felix.themovieshow.data.api.model.PopularMovieResponse
 import com.felix.themovieshow.data.api.model.ReviewPagedResponse
 import com.felix.themovieshow.data.api.model.TopRatedMovieResponse
@@ -43,4 +44,11 @@ interface ApiService {
         @Query("page") page: Int,
         @Query("language") language: String = "en-US"
     ): TopRatedMovieResponse
+
+    // Parkee story 3: now playing
+    @GET("movie/now_playing")
+    suspend fun getNowPlaying(
+        @Query("page") page: Int,
+        @Query("language") language: String = "en-US"
+    ): NowPlayingResponse
 }
