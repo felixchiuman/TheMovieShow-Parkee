@@ -1,5 +1,7 @@
 package com.felix.themovieshow.di
 
+import com.felix.themovieshow.data.repository.FavoriteRepository
+import com.felix.themovieshow.data.repository.FavoriteRepositoryImpl
 import com.felix.themovieshow.data.repository.HomeRepository
 import com.felix.themovieshow.data.repository.HomeRepositoryImpl
 import com.felix.themovieshow.data.repository.MovieDetailRepository
@@ -30,4 +32,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindReviewRepository(impl: ReviewRepositoryImpl): ReviewRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFavoriteRepository(impl: FavoriteRepositoryImpl): FavoriteRepository
 }

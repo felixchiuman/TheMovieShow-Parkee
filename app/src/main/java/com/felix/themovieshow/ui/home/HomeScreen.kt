@@ -18,12 +18,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.felix.themovieshow.data.api.model.Movie
 import com.felix.themovieshow.ui.component.EmptyView
 import com.felix.themovieshow.ui.component.ErrorView
-import com.felix.themovieshow.ui.component.GenreChipRow
 import com.felix.themovieshow.ui.component.LoadingView
 import com.felix.themovieshow.ui.component.MovieRowSection
 import com.felix.themovieshow.ui.component.TopHeaderGreeting
 import androidx.compose.ui.tooling.preview.Preview
-import com.felix.themovieshow.data.api.model.Genre
 import com.felix.themovieshow.ui.theme.TheMovieShowTheme
 import com.felix.themovieshow.ui.theme.BackgroundDark
 
@@ -31,7 +29,8 @@ import com.felix.themovieshow.ui.theme.BackgroundDark
 fun HomeScreen(
     userName: String,
     onMovieClick: (Movie) -> Unit,
-    onSeeAllClick: (Int, String) -> Unit,
+    onSeeAllClick: (String) -> Unit,
+    onFavoriteClick: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -41,9 +40,10 @@ fun HomeScreen(
         uiState = uiState,
         onMovieClick = onMovieClick,
         onSeeAllClick = onSeeAllClick,
-        onGenreSelected = viewModel::onGenreSelected,
-        onLoadMoreMovies = viewModel::loadMoreMovies,
-        onRetryLoadGenres = viewModel::loadGenres
+        onFavoriteClick = onFavoriteClick,
+        onLoadMorePopular = { viewModel.loadPopularMovies() },
+        onLoadMoreTopRated = { viewModel.loadTopRatedMovies() },
+        onRetry = viewModel::retryLoad
     )
 }
 
@@ -52,12 +52,17 @@ fun HomeScreenContent(
     userName: String,
     uiState: HomeUiState,
     onMovieClick: (Movie) -> Unit,
-    onSeeAllClick: (Int, String) -> Unit,
-    onGenreSelected: (Genre) -> Unit,
-    onLoadMoreMovies: () -> Unit,
-    onRetryLoadGenres: () -> Unit
+    onSeeAllClick: (String) -> Unit,
+    onFavoriteClick: () -> Unit,
+    onLoadMorePopular: () -> Unit,
+    onLoadMoreTopRated: () -> Unit,
+    onRetry: () -> Unit
 ) {
-    val selectedGenreName = uiState.genres.firstOrNull { it.id == uiState.selectedGenreId }?.name ?: "Movies"
+    val isInitialLoading = uiState.popularMovies.isEmpty() &&
+            uiState.topRatedMovies.isEmpty() &&
+            (uiState.isLoadingPopular || uiState.isLoadingTopRated)
+
+    val hasNoData = uiState.popularMovies.isEmpty() && uiState.topRatedMovies.isEmpty()
 
     Scaffold(containerColor = BackgroundDark) { padding ->
         Column(
@@ -67,47 +72,38 @@ fun HomeScreenContent(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            TopHeaderGreeting(userName = userName)
+            TopHeaderGreeting(userName = userName, onFavoriteClick = onFavoriteClick)
 
             when {
-                uiState.isLoadingGenres -> LoadingView()
-                uiState.errorMessage != null && uiState.genres.isEmpty() -> {
-                    ErrorView(message = uiState.errorMessage, onRetry = onRetryLoadGenres)
+                isInitialLoading -> LoadingView()
+                uiState.errorMessage != null && hasNoData -> {
+                    ErrorView(message = uiState.errorMessage, onRetry = onRetry)
                 }
+                hasNoData -> EmptyView("Tidak ada film untuk ditampilkan")
                 else -> {
-                    GenreChipRow(
-                        genres = uiState.genres,
-                        selectedGenreId = uiState.selectedGenreId,
-                        onGenreSelected = onGenreSelected
-                    )
-
                     Spacer(Modifier.height(8.dp))
 
-                    when {
-                        uiState.movies.isEmpty() && uiState.isLoadingMovies -> LoadingView()
-                        uiState.movies.isEmpty() -> EmptyView("Tidak ada film untuk genre ini")
-                        else -> {
-                            MovieRowSection(
-                                title = "Continue Watching",
-                                movies = uiState.movies,
-                                onMovieClick = onMovieClick,
-                                onLoadMore = onLoadMoreMovies,
-                                onViewAllClick = {
-                                    uiState.selectedGenreId?.let { onSeeAllClick(it, selectedGenreName) }
-                                }
-                            )
-                            MovieRowSection(
-                                title = "Top Trending",
-                                movies = uiState.movies.take(10),
-                                onMovieClick = onMovieClick,
-                                onViewAllClick = {
-                                    uiState.selectedGenreId?.let { onSeeAllClick(it, selectedGenreName) }
-                                }
-                            )
-                        }
+                    if (uiState.popularMovies.isNotEmpty()) {
+                        MovieRowSection(
+                            title = "Popular Movies",
+                            movies = uiState.popularMovies,
+                            onMovieClick = onMovieClick,
+                            onLoadMore = onLoadMorePopular,
+                            onViewAllClick = { onSeeAllClick("popular") }
+                        )
                     }
 
-                    if (uiState.isLoadingMovies && uiState.movies.isNotEmpty()) {
+                    if (uiState.topRatedMovies.isNotEmpty()) {
+                        MovieRowSection(
+                            title = "Top Rated",
+                            movies = uiState.topRatedMovies,
+                            onMovieClick = onMovieClick,
+                            onLoadMore = onLoadMoreTopRated,
+                            onViewAllClick = { onSeeAllClick("top_rated") }
+                        )
+                    }
+
+                    if (uiState.isLoadingPopular || uiState.isLoadingTopRated) {
                         LoadingView()
                     }
                 }
@@ -123,14 +119,7 @@ fun HomeScreenPreview() {
         HomeScreenContent(
             userName = "Felix",
             uiState = HomeUiState(
-                genres = listOf(
-                    Genre(1, "Action"),
-                    Genre(2, "Adventure"),
-                    Genre(3, "Comedy"),
-                    Genre(4, "Drama")
-                ),
-                selectedGenreId = 1,
-                movies = listOf(
+                popularMovies = listOf(
                     Movie(
                         id = 1,
                         title = "Inception",
@@ -140,7 +129,9 @@ fun HomeScreenPreview() {
                         releaseDate = "2010-07-15",
                         voteAverage = 8.8,
                         genreIds = listOf(1, 2)
-                    ),
+                    )
+                ),
+                topRatedMovies = listOf(
                     Movie(
                         id = 2,
                         title = "The Dark Knight",
@@ -154,10 +145,11 @@ fun HomeScreenPreview() {
                 )
             ),
             onMovieClick = {},
-            onSeeAllClick = { _, _ -> },
-            onGenreSelected = {},
-            onLoadMoreMovies = {},
-            onRetryLoadGenres = {}
+            onSeeAllClick = {},
+            onFavoriteClick = {},
+            onLoadMorePopular = {},
+            onLoadMoreTopRated = {},
+            onRetry = {}
         )
     }
 }

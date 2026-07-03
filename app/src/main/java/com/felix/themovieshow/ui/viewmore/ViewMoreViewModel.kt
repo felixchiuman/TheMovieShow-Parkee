@@ -27,8 +27,7 @@ class ViewMoreViewModel @Inject constructor(
     private val repository: HomeRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
-
-    private val genreId: Int = checkNotNull(savedStateHandle["genreId"])
+    private val category: String = checkNotNull(savedStateHandle["category"])
 
     private val _uiState = MutableStateFlow(ViewMoreUiState())
     val uiState: StateFlow<ViewMoreUiState> = _uiState.asStateFlow()
@@ -54,27 +53,38 @@ class ViewMoreViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             }
 
-            when (val result = repository.discoverMoviesByGenre(genreId, page)) {
-                is Resource.Success -> {
-                    _uiState.update { state ->
-                        val newMovies = if (reset) {
-                            result.data.results
-                        } else {
-                            (state.movies + result.data.results).distinctBy { it.id }
-                        }
-                        state.copy(
-                            isLoading = false,
-                            movies = newMovies,
-                            currentPage = page,
-                            endReached = page >= result.data.totalPages,
-                            errorMessage = null
-                        )
-                    }
+            if (category == "popular") {
+                when (val result = repository.getPopularMovie(page)) {
+                    is Resource.Success -> handleSuccess(result.data.results, result.data.totalPages, page, reset)
+                    is Resource.Error -> handleError(result.message)
                 }
-                is Resource.Error -> {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = result.message) }
+            } else {
+                when (val result = repository.getTopRated(page)) {
+                    is Resource.Success -> handleSuccess(result.data.results, result.data.totalPages, page, reset)
+                    is Resource.Error -> handleError(result.message)
                 }
             }
         }
+    }
+
+    private fun handleSuccess(results: List<Movie>, totalPages: Int, page: Int, reset: Boolean) {
+        _uiState.update { state ->
+            val newMovies = if (reset) {
+                results
+            } else {
+                (state.movies + results).distinctBy { it.id }
+            }
+            state.copy(
+                isLoading = false,
+                movies = newMovies,
+                currentPage = page,
+                endReached = page >= totalPages,
+                errorMessage = null
+            )
+        }
+    }
+
+    private fun handleError(message: String?) {
+        _uiState.update { it.copy(isLoading = false, errorMessage = message) }
     }
 }

@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,7 +38,7 @@ import com.felix.themovieshow.ui.theme.TheMovieShowTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ViewMoreScreen(
-    genreName: String,
+    title: String,
     onBackClick: () -> Unit,
     onMovieClick: (Movie) -> Unit,
     viewModel: ViewMoreViewModel = hiltViewModel()
@@ -46,7 +46,7 @@ fun ViewMoreScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     ViewMoreContent(
-        genreName = genreName,
+        title = title,
         uiState = uiState,
         onBackClick = onBackClick,
         onMovieClick = onMovieClick,
@@ -59,7 +59,7 @@ fun ViewMoreScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ViewMoreContent(
-    genreName: String,
+    title: String,
     uiState: ViewMoreUiState,
     onBackClick: () -> Unit,
     onMovieClick: (Movie) -> Unit,
@@ -70,10 +70,10 @@ fun ViewMoreContent(
         containerColor = BackgroundDark,
         topBar = {
             TopAppBar(
-                title = { Text(genreName, color = Color.White) },
+                title = { Text(title, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
@@ -132,7 +132,7 @@ fun ViewMoreContent(
 private fun ViewMoreContentPreview() {
     TheMovieShowTheme {
         ViewMoreContent(
-            genreName = "Action",
+            title = "Action",
             uiState = ViewMoreUiState(
                 movies = List(9) { i ->
                     Movie(

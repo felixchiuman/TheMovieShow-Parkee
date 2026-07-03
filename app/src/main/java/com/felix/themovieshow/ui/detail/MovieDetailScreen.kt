@@ -1,6 +1,7 @@
 package com.felix.themovieshow.ui.detail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,16 +16,25 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -39,6 +49,7 @@ import com.felix.themovieshow.ui.component.LoadingView
 import com.felix.themovieshow.ui.component.MovieRowSection
 import com.felix.themovieshow.ui.component.ReviewPreviewSection
 import com.felix.themovieshow.ui.component.YoutubePlayer
+import com.felix.themovieshow.ui.theme.AccentRed
 import com.felix.themovieshow.ui.theme.BackgroundDark
 import com.felix.themovieshow.ui.theme.TextSecondary
 import com.felix.themovieshow.ui.theme.TheMovieShowTheme
@@ -57,18 +68,25 @@ fun MovieDetailScreen(
         onBackClick = onBackClick,
         onMovieClick = onMovieClick,
         onSeeAllReviewsClick = onSeeAllReviewsClick,
+        onToggleFavorite = viewModel::toggleSave,
         onRetry = viewModel::loadMovieDetail
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MovieDetailContent(
     uiState: MovieDetailUiState,
     onBackClick: () -> Unit,
     onMovieClick: (Movie) -> Unit,
     onSeeAllReviewsClick: () -> Unit,
+    onToggleFavorite: () -> Unit,
     onRetry: () -> Unit
 ) {
+    var showShareSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+    val context = LocalContext.current
+
     Scaffold(containerColor = BackgroundDark) { padding ->
         when {
             uiState.isLoading && uiState.movie == null -> {
@@ -111,6 +129,27 @@ fun MovieDetailContent(
                                 .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
                         ) {
                             Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            IconButton(
+                                onClick = onToggleFavorite,
+                                modifier = Modifier
+                                    .background(Color.Black.copy(alpha = 0.4f), shape = CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = if (uiState.isSaved) Icons.Filled.Favorite
+                                    else Icons.Filled.FavoriteBorder,
+                                    contentDescription = if (uiState.isSaved) "Remove from favorites"
+                                    else "Add to favorites",
+                                    tint = if (uiState.isSaved) AccentRed else Color.White
+                                )
+                            }
                         }
                     }
 
@@ -200,6 +239,7 @@ private fun MovieDetailContentPreview() {
             onBackClick = {},
             onMovieClick = {},
             onSeeAllReviewsClick = {},
+            onToggleFavorite = {},
             onRetry = {}
         )
     }
@@ -214,6 +254,7 @@ private fun MovieDetailContentLoadingPreview() {
             onBackClick = {},
             onMovieClick = {},
             onSeeAllReviewsClick = {},
+            onToggleFavorite = {},
             onRetry = {}
         )
     }
@@ -231,6 +272,7 @@ private fun MovieDetailContentErrorPreview() {
             onBackClick = {},
             onMovieClick = {},
             onSeeAllReviewsClick = {},
+            onToggleFavorite = {},
             onRetry = {}
         )
     }

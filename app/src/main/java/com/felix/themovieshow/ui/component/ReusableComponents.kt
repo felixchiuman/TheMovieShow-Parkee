@@ -15,10 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,7 +45,8 @@ import com.felix.themovieshow.ui.theme.TextSecondary
 @Composable
 fun TopHeaderGreeting(
     userName: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onFavoriteClick: (() -> Unit)? = null
 ) {
     Row(
         modifier = modifier
@@ -58,6 +58,15 @@ fun TopHeaderGreeting(
         Column {
             Text("Hello", color = TextSecondary, fontSize = 14.sp)
             Text(userName, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        if (onFavoriteClick != null) {
+            IconButton(onClick = onFavoriteClick) {
+                Icon(
+                    imageVector = Icons.Filled.Favorite,
+                    contentDescription = "Favorite list",
+                    tint = AccentRed
+                )
+            }
         }
     }
 }

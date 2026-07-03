@@ -1,6 +1,5 @@
 package com.felix.themovieshow.navigation
 
-import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -8,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.felix.themovieshow.ui.detail.MovieDetailScreen
+import com.felix.themovieshow.ui.favorite.FavoriteScreen
 import com.felix.themovieshow.ui.home.HomeScreen
 import com.felix.themovieshow.ui.review.ReviewListScreen
 import com.felix.themovieshow.ui.viewmore.ViewMoreScreen
@@ -16,11 +16,12 @@ object Routes {
     const val HOME = "home"
     const val DETAIL = "detail/{movieId}"
     const val REVIEWS = "reviews/{movieId}"
-    const val VIEW_MORE = "viewMore/{genreId}/{genreName}"
+    const val VIEW_MORE = "viewMore/{category}"
+    const val FAVORITES = "favorites"
 
     fun detail(movieId: Int) = "detail/$movieId"
     fun reviews(movieId: Int) = "reviews/$movieId"
-    fun viewMore(genreId: Int, genreName: String) = "viewMore/$genreId/${Uri.encode(genreName)}"
+    fun viewMore(category: String) = "viewMore/$category"
 }
 
 @Composable
@@ -32,9 +33,17 @@ fun TheMovieShowNavGraph() {
             HomeScreen(
                 userName = "Felix",
                 onMovieClick = { movie -> navController.navigate(Routes.detail(movie.id)) },
-                onSeeAllClick = { genreId, genreName ->
-                    navController.navigate(Routes.viewMore(genreId, genreName))
-                }
+                onSeeAllClick = { category ->
+                    navController.navigate(Routes.viewMore(category))
+                },
+                onFavoriteClick = { navController.navigate(Routes.FAVORITES) }
+            )
+        }
+
+        composable(Routes.FAVORITES) {
+            FavoriteScreen(
+                onBackClick = { navController.popBackStack() },
+                onMovieClick = { movie -> navController.navigate(Routes.detail(movie.id)) }
             )
         }
 
@@ -60,13 +69,15 @@ fun TheMovieShowNavGraph() {
         composable(
             route = Routes.VIEW_MORE,
             arguments = listOf(
-                navArgument("genreId") { type = NavType.IntType },
-                navArgument("genreName") { type = NavType.StringType }
+                navArgument("category") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val genreName = backStackEntry.arguments?.getString("genreName")?.let { Uri.decode(it) } ?: "Movies"
+            val category = backStackEntry.arguments?.getString("category") ?: "popular"
+
+            val title = if (category == "popular") "Popular Movies" else "Top Rated"
+
             ViewMoreScreen(
-                genreName = genreName,
+                title = title,
                 onBackClick = { navController.popBackStack() },
                 onMovieClick = { movie -> navController.navigate(Routes.detail(movie.id)) }
             )

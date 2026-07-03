@@ -143,7 +143,6 @@ class ReviewListViewModelTest {
         advanceUntilIdle()
 
         viewModel.loadMore()
-        // sengaja tidak advanceUntilIdle() dulu -- cek isLoading masih true di titik ini
         assertTrue(viewModel.uiState.value.isLoading)
 
         viewModel.loadMore() // harus di-ignore

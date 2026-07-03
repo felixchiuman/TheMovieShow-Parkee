@@ -1,8 +1,8 @@
 package com.felix.themovieshow.viewmodel
 
-import com.felix.themovieshow.data.api.model.Genre
 import com.felix.themovieshow.data.api.model.Movie
-import com.felix.themovieshow.data.api.model.MoviePagedResponse
+import com.felix.themovieshow.data.api.model.PopularMovieResponse
+import com.felix.themovieshow.data.api.model.TopRatedMovieResponse
 import com.felix.themovieshow.data.repository.HomeRepository
 import com.felix.themovieshow.data.resource.Resource
 import com.felix.themovieshow.ui.home.HomeViewModel
@@ -19,9 +19,10 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
@@ -52,145 +53,117 @@ class HomeViewModelTest {
         genreIds = listOf(1)
     )
 
-    // ============ Positive case: init() ============
-
     @Test
-    fun `init loads genres and movies of first genre on success`() = runTest(testDispatcher) {
-        val genres = listOf(Genre(1, "Action"), Genre(2, "Drama"))
-        coEvery { repository.getGenres() } returns Resource.Success(genres)
-        coEvery { repository.discoverMoviesByGenre(1, 1) } returns Resource.Success(
-            MoviePagedResponse(page = 1, results = listOf(sampleMovie(1)), totalPages = 5)
-        )
+    fun `init loads popular and top rated movies on success`() = runTest(testDispatcher) {
+        val popularResponse = PopularMovieResponse(page = 1, results = listOf(sampleMovie(1)), totalPages = 5, totalResults = 100)
+        val topRatedResponse = TopRatedMovieResponse(page = 1, results = listOf(sampleMovie(2)), totalPages = 5, totalResults = 100)
+
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(popularResponse)
+        coEvery { repository.getTopRated(1) } returns Resource.Success(topRatedResponse)
 
         val viewModel = HomeViewModel(repository)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertEquals(genres, state.genres)
-        assertEquals(1, state.selectedGenreId)
-        assertEquals(1, state.movies.size)
-        assertFalse(state.isLoadingGenres)
-        assertFalse(state.isLoadingMovies)
+        assertEquals(1, state.popularMovies.size)
+        assertEquals(1, state.topRatedMovies.size)
+        assertEquals(1, state.popularMovies[0].id)
+        assertEquals(2, state.topRatedMovies[0].id)
+        assertFalse(state.isLoadingPopular)
+        assertFalse(state.isLoadingTopRated)
+        assertNull(state.errorMessage)
     }
 
-    // ============ Negative case: init() ============
-
     @Test
-    fun `init sets errorMessage when getGenres fails`() = runTest(testDispatcher) {
-        coEvery { repository.getGenres() } returns Resource.Error("Network error")
+    fun `init sets errorMessage when api call fails`() = runTest(testDispatcher) {
+        coEvery { repository.getPopularMovie(1) } returns Resource.Error("Network error")
+        coEvery { repository.getTopRated(1) } returns Resource.Success(TopRatedMovieResponse(1, emptyList(), 1, 0))
 
         val viewModel = HomeViewModel(repository)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertEquals("Network error", state.errorMessage)
-        assertTrue(state.genres.isEmpty())
-        assertFalse(state.isLoadingGenres)
+        assertFalse(state.isLoadingPopular)
     }
 
-    // ============ onGenreSelected ============
-
     @Test
-    fun `onGenreSelected does nothing when the same genre is already selected`() = runTest(testDispatcher) {
-        val genres = listOf(Genre(1, "Action"))
-        coEvery { repository.getGenres() } returns Resource.Success(genres)
-        coEvery { repository.discoverMoviesByGenre(1, 1) } returns Resource.Success(
-            MoviePagedResponse(1, listOf(sampleMovie(1)), 5)
-        )
+    fun `loadPopularMovies appends movies and increments page`() = runTest(testDispatcher) {
+        val page1 = PopularMovieResponse(1, listOf(sampleMovie(1)), 5, 100)
+        val page2 = PopularMovieResponse(2, listOf(sampleMovie(2)), 5, 100)
+
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(page1)
+        coEvery { repository.getPopularMovie(2) } returns Resource.Success(page2)
+        coEvery { repository.getTopRated(any()) } returns Resource.Success(TopRatedMovieResponse(1, emptyList(), 1, 0))
 
         val viewModel = HomeViewModel(repository)
         advanceUntilIdle()
 
-        viewModel.onGenreSelected(Genre(1, "Action")) // genre yang sama seperti yang sudah dipilih
+        viewModel.loadPopularMovies()
         advanceUntilIdle()
 
-        // discoverMoviesByGenre(1, 1) cuma boleh kepanggil SEKALI (dari init), tidak nge-refetch
-        coVerify(exactly = 1) { repository.discoverMoviesByGenre(1, 1) }
+        val state = viewModel.uiState.value
+        assertEquals(2, state.popularMovies.size)
+        assertEquals(2, state.popularPage)
+        assertEquals(listOf(1, 2), state.popularMovies.map { it.id })
     }
 
-    // ============ REGRESSION TEST ============
+    @Test
+    fun `loadPopularMovies with reset true clears existing movies`() = runTest(testDispatcher) {
+        val page1 = PopularMovieResponse(1, listOf(sampleMovie(1)), 5, 100)
+        val resetPage = PopularMovieResponse(1, listOf(sampleMovie(3)), 5, 100)
+
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(page1)
+        coEvery { repository.getTopRated(any()) } returns Resource.Success(TopRatedMovieResponse(1, emptyList(), 1, 0))
+
+        val viewModel = HomeViewModel(repository)
+        advanceUntilIdle()
+
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(resetPage)
+        viewModel.loadPopularMovies(reset = true)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.popularMovies.size)
+        assertEquals(3, state.popularMovies[0].id)
+    }
 
     @Test
-    fun `calling loadMoreMovies three times rapidly only triggers ONE fetch for the next page`() =
-        runTest(testDispatcher) {
-            val genres = listOf(Genre(1, "Action"))
-            coEvery { repository.getGenres() } returns Resource.Success(genres)
-            coEvery { repository.discoverMoviesByGenre(1, 1) } returns Resource.Success(
-                MoviePagedResponse(1, listOf(sampleMovie(1)), totalPages = 5)
-            )
-            coEvery { repository.discoverMoviesByGenre(1, 2) } returns Resource.Success(
-                MoviePagedResponse(2, listOf(sampleMovie(2)), totalPages = 5)
-            )
+    fun `loadPopularMovies does nothing when already loading`() = runTest(testDispatcher) {
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(PopularMovieResponse(1, listOf(sampleMovie(1)), 5, 100))
+        coEvery { repository.getTopRated(any()) } returns Resource.Success(TopRatedMovieResponse(1, emptyList(), 1, 0))
 
-            val viewModel = HomeViewModel(repository)
-            advanceUntilIdle()
+        val viewModel = HomeViewModel(repository)
+        advanceUntilIdle()
 
-            viewModel.loadMoreMovies()
-            viewModel.loadMoreMovies()
-            viewModel.loadMoreMovies()
-            advanceUntilIdle()
-
-            coVerify(exactly = 1) { repository.discoverMoviesByGenre(1, 2) }
+        coEvery { repository.getPopularMovie(2) } coAnswers {
+            Resource.Success(PopularMovieResponse(2, listOf(sampleMovie(2)), 5, 100))
         }
 
-    @Test
-    fun `loadMoreMovies does nothing when a fetch is already in progress`() = runTest(testDispatcher) {
-        val genres = listOf(Genre(1, "Action"))
-        coEvery { repository.getGenres() } returns Resource.Success(genres)
-        coEvery { repository.discoverMoviesByGenre(1, 1) } returns Resource.Success(
-            MoviePagedResponse(1, listOf(sampleMovie(1)), totalPages = 5)
-        )
-        coEvery { repository.discoverMoviesByGenre(1, 2) } returns Resource.Success(
-            MoviePagedResponse(2, listOf(sampleMovie(2)), totalPages = 5)
-        )
+        viewModel.loadPopularMovies()
 
-        val viewModel = HomeViewModel(repository)
         advanceUntilIdle()
 
-        viewModel.loadMoreMovies()
-        assertTrue(viewModel.uiState.value.isLoadingMovies)
-
-        viewModel.loadMoreMovies()
-        advanceUntilIdle()
-
-        coVerify(exactly = 1) { repository.discoverMoviesByGenre(1, 2) }
+        coVerify(exactly = 1) { repository.getPopularMovie(2) }
     }
 
     @Test
-    fun `loadMoreMovies does nothing when no genre is selected`() = runTest(testDispatcher) {
-        coEvery { repository.getGenres() } returns Resource.Success(emptyList())
+    fun `retryLoad reloads both popular and top rated movies`() = runTest(testDispatcher) {
+        coEvery { repository.getPopularMovie(1) } returns Resource.Error("Error")
+        coEvery { repository.getTopRated(1) } returns Resource.Error("Error")
 
         val viewModel = HomeViewModel(repository)
         advanceUntilIdle()
 
-        viewModel.loadMoreMovies()
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(PopularMovieResponse(1, listOf(sampleMovie(1)), 5, 100))
+        coEvery { repository.getTopRated(1) } returns Resource.Success(TopRatedMovieResponse(1, listOf(sampleMovie(2)), 5, 100))
+
+        viewModel.retryLoad()
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { repository.discoverMoviesByGenre(any(), any()) }
-    }
-
-    // ============ distinctBy safety net ============
-
-    @Test
-    fun `merging paginated results removes duplicate movie ids`() = runTest(testDispatcher) {
-        val genres = listOf(Genre(1, "Action"))
-        coEvery { repository.getGenres() } returns Resource.Success(genres)
-        coEvery { repository.discoverMoviesByGenre(1, 1) } returns Resource.Success(
-            MoviePagedResponse(1, listOf(sampleMovie(1)), totalPages = 5)
-        )
-
-        coEvery { repository.discoverMoviesByGenre(1, 2) } returns Resource.Success(
-            MoviePagedResponse(2, listOf(sampleMovie(1), sampleMovie(2)), totalPages = 5)
-        )
-
-        val viewModel = HomeViewModel(repository)
-        advanceUntilIdle()
-
-        viewModel.loadMoreMovies()
-        advanceUntilIdle()
-
-        val movieIds = viewModel.uiState.value.movies.map { it.id }
-        assertEquals(listOf(1, 2), movieIds)
-        assertEquals(movieIds.size, movieIds.distinct().size)
+        val state = viewModel.uiState.value
+        assertEquals(1, state.popularMovies.size)
+        assertEquals(1, state.topRatedMovies.size)
+        assertNull(state.errorMessage)
     }
 }

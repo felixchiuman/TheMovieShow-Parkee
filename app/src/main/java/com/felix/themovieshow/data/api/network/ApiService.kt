@@ -3,7 +3,9 @@ package com.felix.themovieshow.data.api.network
 import com.felix.themovieshow.data.api.model.GenreResponse
 import com.felix.themovieshow.data.api.model.Movie
 import com.felix.themovieshow.data.api.model.MoviePagedResponse
+import com.felix.themovieshow.data.api.model.PopularMovieResponse
 import com.felix.themovieshow.data.api.model.ReviewPagedResponse
+import com.felix.themovieshow.data.api.model.TopRatedMovieResponse
 import com.felix.themovieshow.data.api.model.VideoResponse
 import retrofit2.http.GET
 import retrofit2.http.Path
@@ -44,4 +46,18 @@ interface ApiService {
     suspend fun getMovieVideos(
         @Path("movie_id") movieId: Int
     ): VideoResponse
+
+    // Parkee story 1: popular list
+    @GET("movie/popular")
+    suspend fun getMoviePopular(
+        @Query("page") page: Int,
+        @Query("language") language: String = "en-US"
+    ): PopularMovieResponse
+
+    // Parkee story 2: top rated
+    @GET("movie/top_rated")
+    suspend fun getTopRated(
+        @Query("page") page: Int,
+        @Query("language") language: String = "en-US"
+    ): TopRatedMovieResponse
 }

@@ -59,6 +59,16 @@ class MovieDetailRepositoryImplTest {
     }
 
     @Test
+    fun `getMovieDetail returns Error with default message when exception has no message`() = runTest {
+        coEvery { api.getMovieDetail(931285) } throws RuntimeException()
+
+        val result = repository.getMovieDetail(931285)
+
+        assertTrue(result is Resource.Error)
+        assertEquals("Gagal mengambil detail film", (result as Resource.Error).message)
+    }
+
+    @Test
     fun `getMovieTrailer returns Success with trailer when a YouTube Trailer exists`() = runTest {
         val trailer = Video(id = "1", key = "abc123", site = "YouTube", type = "Trailer")
         val teaser = Video(id = "2", key = "xyz789", site = "YouTube", type = "Teaser")

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.felix.themovieshow.data.api.model.Movie
 import com.felix.themovieshow.data.api.model.Review
+import com.felix.themovieshow.data.repository.FavoriteRepository
 import com.felix.themovieshow.data.repository.HomeRepository
 import com.felix.themovieshow.data.repository.MovieDetailRepository
 import com.felix.themovieshow.data.repository.ReviewRepository
@@ -33,6 +34,7 @@ class MovieDetailViewModel @Inject constructor(
     private val detailRepository: MovieDetailRepository,
     private val reviewRepository: ReviewRepository,
     private val homeRepository: HomeRepository,
+    private val favoriteRepository: FavoriteRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val movieId: Int = checkNotNull(savedStateHandle["movieId"])
@@ -42,6 +44,15 @@ class MovieDetailViewModel @Inject constructor(
 
     init {
         loadMovieDetail()
+        observeFavoriteStatus()
+    }
+
+    private fun observeFavoriteStatus() {
+        viewModelScope.launch {
+            favoriteRepository.isFavorite(movieId).collect { fav ->
+                _uiState.update { it.copy(isSaved = fav) }
+            }
+        }
     }
 
     fun loadMovieDetail() {
@@ -66,7 +77,7 @@ class MovieDetailViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = detailRepository.getMovieTrailer(movieId)) {
                 is Resource.Success -> _uiState.update { it.copy(trailerKey = result.data?.key) }
-                is Resource.Error -> { /* trailer opsional, tidak block UI utama */ }
+                is Resource.Error -> Unit
             }
         }
     }
@@ -75,7 +86,7 @@ class MovieDetailViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = reviewRepository.getMovieReviews(movieId, page = 1)) {
                 is Resource.Success -> _uiState.update { it.copy(reviewPreview = result.data.results.take(3)) }
-                is Resource.Error -> { /* review preview opsional */ }
+                is Resource.Error -> Unit
             }
         }
     }
@@ -98,6 +109,13 @@ class MovieDetailViewModel @Inject constructor(
     }
 
     fun toggleSave() {
-        _uiState.update { it.copy(isSaved = !it.isSaved) }
+        val movie = _uiState.value.movie ?: return
+        viewModelScope.launch {
+            if (_uiState.value.isSaved) {
+                favoriteRepository.removeFavorite(movie.id)
+            } else {
+                favoriteRepository.addFavorite(movie)
+            }
+        }
     }
 }

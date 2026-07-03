@@ -2,7 +2,6 @@ package com.felix.themovieshow.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.felix.themovieshow.data.api.model.Genre
 import com.felix.themovieshow.data.api.model.Movie
 import com.felix.themovieshow.data.repository.HomeRepository
 import com.felix.themovieshow.data.resource.Resource
@@ -15,12 +14,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
-    val isLoadingGenres: Boolean = false,
-    val genres: List<Genre> = emptyList(),
-    val selectedGenreId: Int? = null,
-    val movies: List<Movie> = emptyList(),
-    val currentPage: Int = 1,
-    val isLoadingMovies: Boolean = false,
+    val popularMovies: List<Movie> = emptyList(),
+    val isLoadingPopular: Boolean = false,
+    val popularPage: Int = 1,
+    val topRatedMovies: List<Movie> = emptyList(),
+    val isLoadingTopRated: Boolean = false,
+    val topRatedPage: Int = 1,
     val errorMessage: String? = null
 )
 
@@ -33,71 +32,70 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
-        loadGenres()
+        loadPopularMovies(reset = true)
+        loadTopRatedMovies(reset = true)
     }
 
-    fun loadGenres() {
+    fun loadPopularMovies(reset: Boolean = false) {
+        if (_uiState.value.isLoadingPopular) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingGenres = true, errorMessage = null) }
-            when (val result = repository.getGenres()) {
-                is Resource.Success -> {
-                    val firstGenre = result.data.firstOrNull()
-                    _uiState.update {
-                        it.copy(
-                            isLoadingGenres = false,
-                            genres = result.data,
-                            selectedGenreId = firstGenre?.id
-                        )
-                    }
-                    firstGenre?.let { loadMoviesByGenre(it.id, reset = true) }
-                }
-                is Resource.Error -> {
-                    _uiState.update { it.copy(isLoadingGenres = false, errorMessage = result.message) }
-                }
-            }
-        }
-    }
+            val page = if (reset) 1 else _uiState.value.popularPage + 1
+            _uiState.update { it.copy(isLoadingPopular = true) }
 
-    fun onGenreSelected(genre: Genre) {
-        if (genre.id == _uiState.value.selectedGenreId) return
-        _uiState.update { it.copy(selectedGenreId = genre.id, movies = emptyList(), currentPage = 1) }
-        loadMoviesByGenre(genre.id, reset = true)
-    }
-
-    fun loadMoreMovies() {
-        val genreId = _uiState.value.selectedGenreId ?: return
-        if (_uiState.value.isLoadingMovies) return
-        _uiState.update { it.copy(isLoadingMovies = true) }
-        loadMoviesByGenre(genreId, reset = false)
-    }
-
-    private fun loadMoviesByGenre(genreId: Int, reset: Boolean) {
-        viewModelScope.launch {
-            val page = if (reset) 1 else _uiState.value.currentPage + 1
-            if (reset) {
-                _uiState.update { it.copy(isLoadingMovies = true) }
-            }
-
-            when (val result = repository.discoverMoviesByGenre(genreId, page)) {
+            when (val result = repository.getPopularMovie(page)) {
                 is Resource.Success -> {
                     _uiState.update { state ->
                         val newMovies = if (reset) {
                             result.data.results
                         } else {
-                            (state.movies + result.data.results).distinctBy { it.id }
+                            (state.popularMovies + result.data.results).distinctBy { it.id }
                         }
                         state.copy(
-                            isLoadingMovies = false,
-                            movies = newMovies,
-                            currentPage = page,
+                            isLoadingPopular = false,
+                            popularMovies = newMovies,
+                            popularPage = page,
                             errorMessage = null
                         )
                     }
                 }
                 is Resource.Error -> {
-                    _uiState.update { it.copy(isLoadingMovies = false, errorMessage = result.message) }
+                    _uiState.update { it.copy(isLoadingPopular = false, errorMessage = result.message) }
                 }
             }
         }
+    }
+
+    fun loadTopRatedMovies(reset: Boolean = false) {
+        if (_uiState.value.isLoadingTopRated) return
+        viewModelScope.launch {
+            val page = if (reset) 1 else _uiState.value.topRatedPage + 1
+            _uiState.update { it.copy(isLoadingTopRated = true) }
+
+            when (val result = repository.getTopRated(page)) {
+                is Resource.Success -> {
+                    _uiState.update { state ->
+                        val newMovies = if (reset) {
+                            result.data.results
+                        } else {
+                            (state.topRatedMovies + result.data.results).distinctBy { it.id }
+                        }
+                        state.copy(
+                            isLoadingTopRated = false,
+                            topRatedMovies = newMovies,
+                            topRatedPage = page,
+                            errorMessage = null
+                        )
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isLoadingTopRated = false, errorMessage = result.message) }
+                }
+            }
+        }
+    }
+
+    fun retryLoad() {
+        loadPopularMovies(reset = true)
+        loadTopRatedMovies(reset = true)
     }
 }

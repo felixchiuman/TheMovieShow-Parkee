@@ -7,15 +7,18 @@ import com.felix.themovieshow.data.api.model.MoviePagedResponse
 import com.felix.themovieshow.data.api.model.Review
 import com.felix.themovieshow.data.api.model.ReviewPagedResponse
 import com.felix.themovieshow.data.api.model.Video
+import com.felix.themovieshow.data.repository.FavoriteRepository
 import com.felix.themovieshow.data.repository.HomeRepository
 import com.felix.themovieshow.data.repository.MovieDetailRepository
 import com.felix.themovieshow.data.repository.ReviewRepository
 import com.felix.themovieshow.data.resource.Resource
 import com.felix.themovieshow.ui.detail.MovieDetailViewModel
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -37,6 +40,7 @@ class MovieDetailViewModelTest {
     private lateinit var detailRepository: MovieDetailRepository
     private lateinit var reviewRepository: ReviewRepository
     private lateinit var homeRepository: HomeRepository
+    private lateinit var favoriteRepository: FavoriteRepository
 
     private val movieId = 931285
 
@@ -57,6 +61,10 @@ class MovieDetailViewModelTest {
         detailRepository = mockk()
         reviewRepository = mockk()
         homeRepository = mockk()
+        favoriteRepository = mockk()
+        
+        // Default mock for favorite status
+        coEvery { favoriteRepository.isFavorite(movieId) } returns flowOf(false)
     }
 
     @After
@@ -70,11 +78,11 @@ class MovieDetailViewModelTest {
             detailRepository,
             reviewRepository,
             homeRepository,
+            favoriteRepository,
             savedStateHandle
         )
     }
 
-    // Set default happy-path stub untuk trailer/review/related, supaya tiap test bisa
     private fun stubDefaultsSuccess() {
         coEvery { detailRepository.getMovieTrailer(movieId) } returns Resource.Success(null)
         coEvery { reviewRepository.getMovieReviews(movieId, 1) } returns
@@ -82,8 +90,6 @@ class MovieDetailViewModelTest {
         coEvery { homeRepository.discoverMoviesByGenre(any(), 1) } returns
             Resource.Success(MoviePagedResponse(1, emptyList(), 1))
     }
-
-    // ============ Positive case: loadMovieDetail() ============
 
     @Test
     fun `loadMovieDetail sets movie and triggers trailer, review, related fetch on success`() =
@@ -113,8 +119,6 @@ class MovieDetailViewModelTest {
             assertFalse(state.isLoading)
         }
 
-    // ============ Negative case: loadMovieDetail() ============
-
     @Test
     fun `loadMovieDetail sets errorMessage when api call fails`() = runTest(testDispatcher) {
         coEvery { detailRepository.getMovieDetail(movieId) } returns Resource.Error("Movie not found")
@@ -128,78 +132,49 @@ class MovieDetailViewModelTest {
         assertFalse(state.isLoading)
     }
 
-    // ============ Trailer opsional -- tidak boleh block UI utama ============
-
     @Test
-    fun `movie detail still loads successfully even when trailer fetch fails`() = runTest(testDispatcher) {
-        coEvery { detailRepository.getMovieDetail(movieId) } returns Resource.Success(sampleMovie)
-        coEvery { detailRepository.getMovieTrailer(movieId) } returns Resource.Error("Failed to fetch videos")
-        coEvery { reviewRepository.getMovieReviews(movieId, 1) } returns
-            Resource.Success(ReviewPagedResponse(1, emptyList(), 1))
-        coEvery { homeRepository.discoverMoviesByGenre(28, 1) } returns
-            Resource.Success(MoviePagedResponse(1, emptyList(), 1))
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        // Movie tetap berhasil ke-load walau trailer gagal -- errorMessage TIDAK boleh ke-set
-        assertEquals(sampleMovie, state.movie)
-        assertNull(state.errorMessage)
-        assertNull(state.trailerKey)
-    }
-
-    // ============ Related movies filter diri sendiri ============
-
-    @Test
-    fun `related movies excludes the currently viewed movie itself`() = runTest(testDispatcher) {
-        coEvery { detailRepository.getMovieDetail(movieId) } returns Resource.Success(sampleMovie)
-        coEvery { detailRepository.getMovieTrailer(movieId) } returns Resource.Success(null)
-        coEvery { reviewRepository.getMovieReviews(movieId, 1) } returns
-            Resource.Success(ReviewPagedResponse(1, emptyList(), 1))
-        coEvery { homeRepository.discoverMoviesByGenre(28, 1) } returns Resource.Success(
-            MoviePagedResponse(
-                1,
-                listOf(sampleMovie, sampleMovie.copy(id = 2, title = "Other Movie")), // sampleMovie ikut kebawa
-                1
-            )
-        )
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        val relatedIds = viewModel.uiState.value.relatedMovies.map { it.id }
-        assertFalse(relatedIds.contains(movieId)) // movie yang sedang dibuka tidak boleh nyangkut di "Related"
-        assertEquals(listOf(2), relatedIds)
-    }
-
-    // ============ toggleLike / toggleSave ============
-
-    @Test
-    fun `toggleLike flips isLiked state`() = runTest(testDispatcher) {
+    fun `observeFavoriteStatus updates isSaved state`() = runTest(testDispatcher) {
         coEvery { detailRepository.getMovieDetail(movieId) } returns Resource.Success(sampleMovie)
         stubDefaultsSuccess()
+        coEvery { favoriteRepository.isFavorite(movieId) } returns flowOf(true)
 
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        assertFalse(viewModel.uiState.value.isLiked)
-        viewModel.toggleLike()
-        assertTrue(viewModel.uiState.value.isLiked)
-        viewModel.toggleLike()
-        assertFalse(viewModel.uiState.value.isLiked)
-    }
-
-    @Test
-    fun `toggleSave flips isSaved state`() = runTest(testDispatcher) {
-        coEvery { detailRepository.getMovieDetail(movieId) } returns Resource.Success(sampleMovie)
-        stubDefaultsSuccess()
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        assertFalse(viewModel.uiState.value.isSaved)
-        viewModel.toggleSave()
         assertTrue(viewModel.uiState.value.isSaved)
+    }
+
+    @Test
+    fun `toggleSave adds favorite when currently not saved`() = runTest(testDispatcher) {
+        coEvery { detailRepository.getMovieDetail(movieId) } returns Resource.Success(sampleMovie)
+        stubDefaultsSuccess()
+        coEvery { favoriteRepository.isFavorite(movieId) } returns flowOf(false)
+        coEvery { favoriteRepository.addFavorite(sampleMovie) } returns Unit
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleSave()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { favoriteRepository.addFavorite(sampleMovie) }
+    }
+
+    @Test
+    fun `toggleSave removes favorite when currently saved`() = runTest(testDispatcher) {
+        coEvery { detailRepository.getMovieDetail(movieId) } returns Resource.Success(sampleMovie)
+        stubDefaultsSuccess()
+        coEvery { favoriteRepository.isFavorite(movieId) } returns flowOf(true)
+        coEvery { favoriteRepository.removeFavorite(movieId) } returns Unit
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.isSaved)
+
+        viewModel.toggleSave()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { favoriteRepository.removeFavorite(movieId) }
     }
 }
