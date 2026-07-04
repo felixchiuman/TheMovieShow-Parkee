@@ -42,7 +42,6 @@ import com.felix.themovieshow.ui.theme.TextSecondary
 
 @Composable
 fun TopHeaderGreeting(
-    userName: String,
     modifier: Modifier = Modifier,
     onFavoriteClick: (() -> Unit)? = null
 ) {
@@ -54,8 +53,7 @@ fun TopHeaderGreeting(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            Text("Hello", color = TextSecondary, fontSize = 14.sp)
-            Text(userName, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("TheMovieShow", color = TextSecondary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
         if (onFavoriteClick != null) {
             IconButton(
@@ -111,6 +109,42 @@ fun MoviePosterCard(
 }
 
 /**
+ * Rectangle Card poster movie
+ */
+@Composable
+fun RectangleMoviePosterCard(
+    movie: Movie,
+    onClick: (Movie) -> Unit,
+    modifier: Modifier = Modifier,
+    width: Int = 228,
+    height: Int = 128
+) {
+    Column(
+        modifier = modifier
+            .width(width.dp)
+            .clickable { onClick(movie) }
+    ) {
+        AsyncImage(
+            model = movie.backdropUrl,
+            contentDescription = movie.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(height.dp)
+                .clip(RoundedCornerShape(12.dp))
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = movie.title,
+            color = Color.White,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
  * Section horizontal
  */
 @Composable
@@ -133,6 +167,36 @@ fun MovieRowSection(
                 MoviePosterCard(movie = movie, onClick = onMovieClick)
                 // trigger load more saat 3 item terakhir kelihatan -> endless scrolling
                 if (index >= movies.size - 3) {
+                    LaunchedEffect(movie.id) { onLoadMore() }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Section horizontal
+ */
+@Composable
+fun RectangleMovieRowSection(
+    title: String,
+    movies: List<Movie>,
+    onMovieClick: (Movie) -> Unit,
+    onViewAllClick: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.padding(top = 20.dp)) {
+        SectionHeader(title = title, onViewAllClick = onViewAllClick)
+        Spacer(Modifier.height(10.dp))
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp)
+        ) {
+            itemsIndexed(movies, key = { _, movie -> movie.id }) { index, movie ->
+                RectangleMoviePosterCard(movie = movie, onClick = onMovieClick)
+                // trigger load more saat 1 item terakhir kelihatan -> endless scrolling
+                if (index >= movies.size - 1) {
                     LaunchedEffect(movie.id) { onLoadMore() }
                 }
             }
@@ -224,16 +288,16 @@ private val previewMovies = listOf(
 
 // ============ PREVIEWS ============
 
-@Preview(showBackground = true, name = "Top Header")
-@Composable
-private fun TopHeaderGreetingPreview() {
-    TopHeaderGreeting(userName = "Felix")
-}
-
 @Preview(showBackground = true, name = "Movie Poster Card")
 @Composable
 private fun MoviePosterCardPreview() {
     MoviePosterCard(movie = previewMovie, onClick = {})
+}
+
+@Preview(showBackground = true, name = "Rectangle Movie Poster Card")
+@Composable
+private fun RectangleMoviePosterCardPreview() {
+    RectangleMoviePosterCard(movie = previewMovie, onClick = {})
 }
 
 @Preview(showBackground = true, name = "Movie Row Section", widthDp = 400)

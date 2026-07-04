@@ -31,7 +31,6 @@ fun TheMovieShowNavGraph() {
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen(
-                userName = "Felix",
                 onMovieClick = { movie -> navController.navigate(Routes.detail(movie.id)) },
                 onSeeAllClick = { category ->
                     navController.navigate(Routes.viewMore(category))

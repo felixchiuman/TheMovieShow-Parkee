@@ -22,12 +22,12 @@ import com.felix.themovieshow.ui.component.LoadingView
 import com.felix.themovieshow.ui.component.MovieRowSection
 import com.felix.themovieshow.ui.component.TopHeaderGreeting
 import androidx.compose.ui.tooling.preview.Preview
+import com.felix.themovieshow.ui.component.RectangleMovieRowSection
 import com.felix.themovieshow.ui.theme.TheMovieShowTheme
 import com.felix.themovieshow.ui.theme.BackgroundDark
 
 @Composable
 fun HomeScreen(
-    userName: String,
     onMovieClick: (Movie) -> Unit,
     onSeeAllClick: (String) -> Unit,
     onFavoriteClick: () -> Unit = {},
@@ -36,7 +36,6 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     HomeScreenContent(
-        userName = userName,
         uiState = uiState,
         onMovieClick = onMovieClick,
         onSeeAllClick = onSeeAllClick,
@@ -50,7 +49,6 @@ fun HomeScreen(
 
 @Composable
 fun HomeScreenContent(
-    userName: String,
     uiState: HomeUiState,
     onMovieClick: (Movie) -> Unit,
     onSeeAllClick: (String) -> Unit,
@@ -76,7 +74,7 @@ fun HomeScreenContent(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            TopHeaderGreeting(userName = userName, onFavoriteClick = onFavoriteClick)
+            TopHeaderGreeting(onFavoriteClick = onFavoriteClick)
 
             when {
                 isInitialLoading -> LoadingView()
@@ -88,7 +86,7 @@ fun HomeScreenContent(
                     Spacer(Modifier.height(8.dp))
 
                     if (uiState.popularMovies.isNotEmpty()) {
-                        MovieRowSection(
+                        RectangleMovieRowSection(
                             title = "Popular Movies",
                             movies = uiState.popularMovies,
                             onMovieClick = onMovieClick,
@@ -131,7 +129,6 @@ fun HomeScreenContent(
 fun HomeScreenPreview() {
     TheMovieShowTheme {
         HomeScreenContent(
-            userName = "Felix",
             uiState = HomeUiState(
                 popularMovies = listOf(
                     Movie(
