@@ -8,6 +8,10 @@ plugins {
     alias(libs.plugins.kapt)
 }
 
+kapt {
+    correctErrorTypes = true
+}
+
 android {
     namespace = "com.felix.themovieshow"
     compileSdk = 35
@@ -95,6 +99,9 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.espresso.core)
 
     // Room (local persistence untuk fitur Favorite)
     implementation(libs.androidx.room.runtime)

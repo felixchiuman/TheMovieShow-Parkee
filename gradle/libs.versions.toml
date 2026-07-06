@@ -18,6 +18,8 @@ navigationCompose = "2.7.7"
 composeMaterialIcons = "1.6.8"
 room = "2.8.4"
 chucker = "4.0.0"
+androidxTestExtJunit = "1.3.0"
+espressoCore = "3.7.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -49,6 +51,8 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 chucker-library = { group = "com.github.chuckerteam.chucker", name = "library", version.ref = "chucker" }
 chucker-library-no-op = { group = "com.github.chuckerteam.chucker", name = "library-no-op", version.ref = "chucker" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
+espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
