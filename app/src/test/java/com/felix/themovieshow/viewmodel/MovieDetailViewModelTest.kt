@@ -3,12 +3,10 @@ package com.felix.themovieshow.viewmodel
 import androidx.lifecycle.SavedStateHandle
 import com.felix.themovieshow.data.api.model.AuthorDetails
 import com.felix.themovieshow.data.api.model.Movie
-import com.felix.themovieshow.data.api.model.MoviePagedResponse
 import com.felix.themovieshow.data.api.model.Review
 import com.felix.themovieshow.data.api.model.ReviewPagedResponse
 import com.felix.themovieshow.data.api.model.Video
 import com.felix.themovieshow.data.repository.FavoriteRepository
-import com.felix.themovieshow.data.repository.HomeRepository
 import com.felix.themovieshow.data.repository.MovieDetailRepository
 import com.felix.themovieshow.data.repository.ReviewRepository
 import com.felix.themovieshow.data.resource.Resource
@@ -39,7 +37,6 @@ class MovieDetailViewModelTest {
 
     private lateinit var detailRepository: MovieDetailRepository
     private lateinit var reviewRepository: ReviewRepository
-    private lateinit var homeRepository: HomeRepository
     private lateinit var favoriteRepository: FavoriteRepository
 
     private val movieId = 931285
@@ -60,7 +57,6 @@ class MovieDetailViewModelTest {
         Dispatchers.setMain(testDispatcher)
         detailRepository = mockk()
         reviewRepository = mockk()
-        homeRepository = mockk()
         favoriteRepository = mockk()
         
         // Default mock for favorite status
@@ -77,7 +73,6 @@ class MovieDetailViewModelTest {
         return MovieDetailViewModel(
             detailRepository,
             reviewRepository,
-            homeRepository,
             favoriteRepository,
             savedStateHandle
         )
@@ -87,12 +82,10 @@ class MovieDetailViewModelTest {
         coEvery { detailRepository.getMovieTrailer(movieId) } returns Resource.Success(null)
         coEvery { reviewRepository.getMovieReviews(movieId, 1) } returns
             Resource.Success(ReviewPagedResponse(1, emptyList(), 1))
-        coEvery { homeRepository.discoverMoviesByGenre(any(), 1) } returns
-            Resource.Success(MoviePagedResponse(1, emptyList(), 1))
     }
 
     @Test
-    fun `loadMovieDetail sets movie and triggers trailer, review, related fetch on success`() =
+    fun `loadMovieDetail sets movie and triggers trailer, review fetch on success`() =
         runTest(testDispatcher) {
             coEvery { detailRepository.getMovieDetail(movieId) } returns Resource.Success(sampleMovie)
             coEvery { detailRepository.getMovieTrailer(movieId) } returns
@@ -104,9 +97,6 @@ class MovieDetailViewModelTest {
                     1
                 )
             )
-            coEvery { homeRepository.discoverMoviesByGenre(28, 1) } returns Resource.Success(
-                MoviePagedResponse(1, listOf(sampleMovie.copy(id = 2, title = "Related Movie")), 1)
-            )
 
             val viewModel = createViewModel()
             advanceUntilIdle()
@@ -115,7 +105,6 @@ class MovieDetailViewModelTest {
             assertEquals(sampleMovie, state.movie)
             assertEquals("abc123", state.trailerKey)
             assertEquals(1, state.reviewPreview.size)
-            assertEquals(1, state.relatedMovies.size)
             assertFalse(state.isLoading)
         }
 
