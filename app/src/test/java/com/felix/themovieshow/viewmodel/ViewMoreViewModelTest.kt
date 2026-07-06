@@ -2,7 +2,7 @@ package com.felix.themovieshow.viewmodel
 
 import androidx.lifecycle.SavedStateHandle
 import com.felix.themovieshow.data.api.model.Movie
-import com.felix.themovieshow.data.api.model.MoviePagedResponse
+import com.felix.themovieshow.data.api.model.PopularMovieResponse
 import com.felix.themovieshow.data.repository.HomeRepository
 import com.felix.themovieshow.data.resource.Resource
 import com.felix.themovieshow.ui.viewmore.ViewMoreViewModel
@@ -28,7 +28,7 @@ class ViewMoreViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var repository: HomeRepository
-    private val genreId = 1
+    private val category = "popular"
 
     @Before
     fun setUp() {
@@ -42,7 +42,7 @@ class ViewMoreViewModelTest {
     }
 
     private fun createViewModel(): ViewMoreViewModel {
-        val savedStateHandle = SavedStateHandle(mapOf("genreId" to genreId))
+        val savedStateHandle = SavedStateHandle(mapOf("category" to category))
         return ViewMoreViewModel(repository, savedStateHandle)
     }
 
@@ -54,15 +54,15 @@ class ViewMoreViewModelTest {
         overview = "",
         releaseDate = "2026-01-01",
         voteAverage = 7.0,
-        genreIds = listOf(genreId)
+        genreIds = listOf(1)
     )
 
     // ============ POSITIVE CASE ============
 
     @Test
     fun `init loads first page of movies on success`() = runTest(testDispatcher) {
-        coEvery { repository.discoverMoviesByGenre(genreId, 1) } returns Resource.Success(
-            MoviePagedResponse(1, listOf(sampleMovie(1), sampleMovie(2)), totalPages = 5)
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(
+            PopularMovieResponse(1, listOf(sampleMovie(1), sampleMovie(2)), totalPages = 5, totalResults = 10)
         )
 
         val viewModel = createViewModel()
@@ -77,11 +77,11 @@ class ViewMoreViewModelTest {
 
     @Test
     fun `loadMore appends next page and keeps previous movies`() = runTest(testDispatcher) {
-        coEvery { repository.discoverMoviesByGenre(genreId, 1) } returns Resource.Success(
-            MoviePagedResponse(1, listOf(sampleMovie(1)), totalPages = 5)
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(
+            PopularMovieResponse(1, listOf(sampleMovie(1)), totalPages = 5, totalResults = 5)
         )
-        coEvery { repository.discoverMoviesByGenre(genreId, 2) } returns Resource.Success(
-            MoviePagedResponse(2, listOf(sampleMovie(2)), totalPages = 5)
+        coEvery { repository.getPopularMovie(2) } returns Resource.Success(
+            PopularMovieResponse(2, listOf(sampleMovie(2)), totalPages = 5, totalResults = 5)
         )
 
         val viewModel = createViewModel()
@@ -99,7 +99,7 @@ class ViewMoreViewModelTest {
 
     @Test
     fun `init sets errorMessage when initial load fails`() = runTest(testDispatcher) {
-        coEvery { repository.discoverMoviesByGenre(genreId, 1) } returns
+        coEvery { repository.getPopularMovie(1) } returns
                 Resource.Error("Gagal mengambil daftar film")
 
         val viewModel = createViewModel()
@@ -114,13 +114,10 @@ class ViewMoreViewModelTest {
     @Test
     fun `loadMore sets errorMessage when pagination fails, without clearing existing movies`() =
         runTest(testDispatcher) {
-            // Negative case yang penting: kalau load page 2 gagal, movie dari page 1
-            // yang sudah kelihatan di layar TIDAK boleh ikut hilang -- cuma errorMessage
-            // yang muncul, biar user tetap bisa lihat data yang sudah berhasil dimuat.
-            coEvery { repository.discoverMoviesByGenre(genreId, 1) } returns Resource.Success(
-                MoviePagedResponse(1, listOf(sampleMovie(1)), totalPages = 5)
+            coEvery { repository.getPopularMovie(1) } returns Resource.Success(
+                PopularMovieResponse(1, listOf(sampleMovie(1)), totalPages = 5, totalResults = 5)
             )
-            coEvery { repository.discoverMoviesByGenre(genreId, 2) } returns
+            coEvery { repository.getPopularMovie(2) } returns
                     Resource.Error("Network timeout")
 
             val viewModel = createViewModel()
@@ -131,21 +128,21 @@ class ViewMoreViewModelTest {
 
             val state = viewModel.uiState.value
             assertEquals("Network timeout", state.errorMessage)
-            assertEquals(1, state.movies.size) // movie page 1 tetap ada, tidak ke-reset
+            assertEquals(1, state.movies.size)
             assertFalse(state.isLoading)
         }
 
     @Test
     fun `retry after error successfully reloads movies`() = runTest(testDispatcher) {
-        coEvery { repository.discoverMoviesByGenre(genreId, 1) } returns
+        coEvery { repository.getPopularMovie(1) } returns
                 Resource.Error("Server error")
 
         val viewModel = createViewModel()
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.movies.isEmpty())
 
-        coEvery { repository.discoverMoviesByGenre(genreId, 1) } returns Resource.Success(
-            MoviePagedResponse(1, listOf(sampleMovie(1)), totalPages = 5)
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(
+            PopularMovieResponse(1, listOf(sampleMovie(1)), totalPages = 5, totalResults = 5)
         )
 
         viewModel.retry()
@@ -156,16 +153,16 @@ class ViewMoreViewModelTest {
         assertEquals(null, state.errorMessage)
     }
 
-    // ============ REGRESSION TEST: race condition (pola sama seperti Home/Review) ============
+    // ============ REGRESSION TEST ============
 
     @Test
     fun `calling loadMore three times rapidly only triggers ONE fetch for the next page`() =
         runTest(testDispatcher) {
-            coEvery { repository.discoverMoviesByGenre(genreId, 1) } returns Resource.Success(
-                MoviePagedResponse(1, listOf(sampleMovie(1)), totalPages = 5)
+            coEvery { repository.getPopularMovie(1) } returns Resource.Success(
+                PopularMovieResponse(1, listOf(sampleMovie(1)), totalPages = 5, totalResults = 5)
             )
-            coEvery { repository.discoverMoviesByGenre(genreId, 2) } returns Resource.Success(
-                MoviePagedResponse(2, listOf(sampleMovie(2)), totalPages = 5)
+            coEvery { repository.getPopularMovie(2) } returns Resource.Success(
+                PopularMovieResponse(2, listOf(sampleMovie(2)), totalPages = 5, totalResults = 5)
             )
 
             val viewModel = createViewModel()
@@ -176,13 +173,13 @@ class ViewMoreViewModelTest {
             viewModel.loadMore()
             advanceUntilIdle()
 
-            coVerify(exactly = 1) { repository.discoverMoviesByGenre(genreId, 2) }
+            coVerify(exactly = 1) { repository.getPopularMovie(2) }
         }
 
     @Test
     fun `loadMore does nothing once endReached is true`() = runTest(testDispatcher) {
-        coEvery { repository.discoverMoviesByGenre(genreId, 1) } returns Resource.Success(
-            MoviePagedResponse(1, listOf(sampleMovie(1)), totalPages = 1)
+        coEvery { repository.getPopularMovie(1) } returns Resource.Success(
+            PopularMovieResponse(1, listOf(sampleMovie(1)), totalPages = 1, totalResults = 1)
         )
 
         val viewModel = createViewModel()
@@ -192,6 +189,6 @@ class ViewMoreViewModelTest {
         viewModel.loadMore()
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { repository.discoverMoviesByGenre(genreId, any()) }
+        coVerify(exactly = 1) { repository.getPopularMovie(any()) }
     }
 }
